@@ -136,28 +136,48 @@ with tab2:
         space_sell_target = st.number_input("TIGER 미국우주테크 ETF 매도 단가 (이상)", value=16000, step=50)
 
     st.markdown("---")
-    if st.checkbox("🔄 60초 간격 양방향 무인 자동 감시 작동"):
-        # 1. 대우건설 감시망
-        if dw_price > 0 and dw_price <= dw_buy_target and not st.session_state.dw_buy_fired:
-            requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📉 [매수 경보] 대우건설 목표가 진입: {dw_price:,}원"})
-            st.session_state.dw_buy_fired = True
-        if dw_price > dw_buy_target: st.session_state.dw_buy_fired = False
-
-        if dw_price > 0 and dw_price >= dw_sell_target and not st.session_state.dw_sell_fired:
-            requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📈 [매도 경보] 대우건설 목표가 돌파: {dw_price:,}원"})
-            st.session_state.dw_sell_fired = True
-        if dw_price < dw_sell_target: st.session_state.dw_sell_fired = False
+    if st.checkbox("🔄 무인 자동 감시 작동"):
+        # ─── ⏱️ [회장님 전용 작전 시간 통제실] ───
+        now = datetime.datetime.now()
         
-        # 2. 우주테크 ETF 감시망
-        if space_price > 0 and space_price <= space_buy_target and not st.session_state.space_buy_fired:
-            requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📉 [매수 경보] 우주테크 ETF 목표가 진입: {space_price:,}원"})
-            st.session_state.space_buy_fired = True
-        if space_price > space_buy_target: st.session_state.space_buy_fired = False
-
-        if space_price > 0 and space_price >= space_sell_target and not st.session_state.space_sell_fired:
-            requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📈 [매도 경보] 우주테크 ETF 목표가 돌파: {space_price:,}원"})
-            st.session_state.space_sell_fired = True
-        if space_price < space_sell_target: st.session_state.space_sell_fired = False
+        # 1. 요일 통제 (0=월, 1=화, 2=수, 3=목, 4=금 / 5=토, 6=일)
+        is_weekday = now.weekday() < 5  # < 5 이므로 월~금요일만 True가 됩니다.
         
-        time.sleep(60)
+        # 2. 시분 통제 (시작 시간 설정 : 8시 30분 ~ 종료 시간 설정 : 16시 00분)
+        start_time = datetime.time(0, 1)
+        end_time = datetime.time(23, 59)
+        is_market_hours = start_time <= now.time() <= end_time
+        
+        # 3. 최종 통신 허가 검사
+        if is_weekday and is_market_hours:
+            st.info(f"🛰️ 현재 시각 {now.strftime('%H:%M:%S')} : 작전 시간 내 정상 가동 중...")
+            
+            # 🏢 [대우건설 감시 로직]
+            if dw_price > 0 and dw_price <= dw_buy_target and not st.session_state.dw_buy_fired:
+                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📉 [매수 경보] 대우건설 목표가 진입: {dw_price:,}원"})
+                st.session_state.dw_buy_fired = True
+            if dw_price > dw_buy_target: st.session_state.dw_buy_fired = False
+
+            if dw_price > 0 and dw_price >= dw_sell_target and not st.session_state.dw_sell_fired:
+                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📈 [매도 경보] 대우건설 목표가 돌파: {dw_price:,}원"})
+                st.session_state.dw_sell_fired = True
+            if dw_price < dw_sell_target: st.session_state.dw_sell_fired = False
+            
+            # 🚀 [우주테크 ETF 감시 로직]
+            if space_price > 0 and space_price <= space_buy_target and not st.session_state.space_buy_fired:
+                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📉 [매수 경보] 우주테크 ETF 목표가 진입: {space_price:,}원"})
+                st.session_state.space_buy_fired = True
+            if space_price > space_buy_target: st.session_state.space_buy_fired = False
+
+            if space_price > 0 and space_price >= space_sell_target and not st.session_state.space_sell_fired:
+                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📈 [매도 경보] 우주테크 ETF 목표가 돌파: {space_price:,}원"})
+                st.session_state.space_sell_fired = True
+            if space_price < space_sell_target: st.session_state.space_sell_fired = False
+
+        else:
+            # 주말이거나 지정된 시간 외일 때 대기 모드 표출
+            st.warning(f"💤 현재 시각 {now.strftime('%H:%M:%S')} : 감시 휴식 모드 (평일 08:30~16:00에만 엔진이 회전합니다)")
+        # ───────────────────────────────────────
+        
+        time.sleep(60)  # 💡 주기를 바꿀 때는 이 숫자를 조절!
         st.rerun()
