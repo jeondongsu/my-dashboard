@@ -163,7 +163,7 @@ with tab2:
         is_market_hours = start_time <= now.time() <= end_time
         
         if is_weekday and is_market_hours:
-            st.info(f"🛰️ 현재 시각 {now.strftime('%H:%M:%S')} : 24시간 무인 감시망 가동 중 (10분 주기)")
+            st.info(f"🛰️ 현재 시각 {now.strftime('%H:%M:%S')} : 24시간 무인 감시망 가동 중 (1분 주기)")
             
             # 1. 대우건설 감시 로직
             if dw_price > 0 and dw_price <= dw_buy_target and not st.session_state.dw_buy_fired:
