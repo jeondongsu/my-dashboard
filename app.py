@@ -6,15 +6,17 @@ import datetime
 import time
 import xml.etree.ElementTree as ET
 
-st.set_page_config(layout="wide", page_title="통합 지휘소 V8.1 (보안/개별타격)")
+st.set_page_config(layout="wide", page_title="통합 지휘소 V9 (가상자산 확장)")
 
-# --- [상태 관리 시스템: 4대 알림망 독립 제어] ---
+# --- [상태 관리 시스템: 6대 알림망 독립 제어] ---
 if 'dw_buy_fired' not in st.session_state: st.session_state.dw_buy_fired = False
 if 'dw_sell_fired' not in st.session_state: st.session_state.dw_sell_fired = False
 if 'space_buy_fired' not in st.session_state: st.session_state.space_buy_fired = False
 if 'space_sell_fired' not in st.session_state: st.session_state.space_sell_fired = False
+if 'eth_buy_fired' not in st.session_state: st.session_state.eth_buy_fired = False
+if 'eth_sell_fired' not in st.session_state: st.session_state.eth_sell_fired = False
 
-# 🛰️ 주가 수집 엔진
+# 🛰️ 네이버페이 증권 수집 엔진 (주식/ETF)
 def get_naver_price(code):
     try:
         url = f"https://finance.naver.com/item/main.naver?code={code}"
@@ -23,6 +25,16 @@ def get_naver_price(code):
         match = re.search(r'<p class="no_today">.*?<span class="blind">([\d,]+)</span>', res.text, re.DOTALL)
         if match: return int(match.group(1).replace(',', ''))
         return 0
+    except: return 0
+
+# 🛰️ 업비트 가상자산 수집 엔진 (신규 장착)
+def get_upbit_price(ticker="KRW-ETH"):
+    try:
+        url = f"https://api.upbit.com/v1/ticker?markets={ticker}"
+        headers = {"accept": "application/json"}
+        res = requests.get(url, headers=headers)
+        data = res.json()
+        return int(data[0]['trade_price'])
     except: return 0
 
 # 🏠 국토교통부 실거래가 API 저격 엔진
@@ -86,9 +98,9 @@ if dsr <= 40: st.sidebar.success("✅ 대출 안전권")
 else: st.sidebar.error("🚨 한도 초과 위험!")
 
 # --- [메인 화면] 작전 제어판 ---
-st.title("🏢 전동수 회장님 전용 무인 감시 지휘소 (V8.1)")
+st.title("🏢 전동수 회장님 전용 무인 감시 지휘소 (V9)")
 
-tab1, tab2 = st.tabs(["🏠 국토부 실거래가 자동 수집판", "📈 공방형 주가 무인 감시망"])
+tab1, tab2 = st.tabs(["🏠 국토부 실거래가 자동 수집판", "📈 통합 자산 무인 감시망"])
 
 with tab1:
     st.subheader("🛰️ 공공데이터포털 실시간 실거래가 매핑")
@@ -110,74 +122,85 @@ with tab1:
                 st.warning("⚠️해당 년월에 신고된 거래 데이터가 없거나 인증키 동기화 대기 중입니다.")
 
 with tab2:
-    st.subheader("🛰️ 실시간 주가 감시판")
-    col1, col2 = st.columns(2)
-    with col1: dw_code = st.text_input("대우건설 종목코드", value="047040")
-    with col2: space_code = st.text_input("TIGER 미국우주테크 ETF 종목코드", value="0183J0")
+    st.subheader("🛰️ 실시간 주식 및 가상자산 감시판")
     
-    dw_price = get_naver_price(dw_code)
-    space_price = get_naver_price(space_code)
+    # 데이터 수집
+    dw_price = get_naver_price("047040")
+    space_price = get_naver_price("0183J0")
+    eth_price = get_upbit_price("KRW-ETH")
     
-    colA, colB = st.columns(2)
-    with colA: st.metric("📊 대우건설 현재가", f"{dw_price:,} 원")
-    with colB: st.metric("🚀 TIGER 미국우주테크 ETF 현재가", f"{space_price:,} 원")
+    # 3분할 전광판 출력
+    colA, colB, colC = st.columns(3)
+    with colA: st.metric("🏢 대우건설", f"{dw_price:,} 원")
+    with colB: st.metric("🚀 TIGER 미국우주테크 ETF", f"{space_price:,} 원")
+    with colC: st.metric("💎 이더리움 (ETH)", f"{eth_price:,} 원")
     
     st.markdown("---")
     st.subheader("🚨 공방(攻防)형 자동 경보 시스템 설정")
     
-    col_tgt1, col_tgt2 = st.columns(2)
+    # 3분할 타격선 설정
+    col_tgt1, col_tgt2, col_tgt3 = st.columns(3)
     with col_tgt1:
-        st.markdown("### 🏢 대우건설 타격선")
-        dw_buy_target = st.number_input("대우건설 매수 단가 (이하)", value=28000, step=50)
-        dw_sell_target = st.number_input("대우건설 매도 단가 (이상)", value=30000, step=50)
+        st.markdown("#### 🏢 대우건설")
+        dw_buy_target = st.number_input("매수 단가 (이하)", value=3500, step=50, key="dw_buy")
+        dw_sell_target = st.number_input("매도 단가 (이상)", value=4500, step=50, key="dw_sell")
     with col_tgt2:
-        st.markdown("### 🚀 우주테크 ETF 타격선")
-        space_buy_target = st.number_input("TIGER 미국우주테크 ETF 매수 단가 (이하)", value=14000, step=50)
-        space_sell_target = st.number_input("TIGER 미국우주테크 ETF 매도 단가 (이상)", value=16000, step=50)
+        st.markdown("#### 🚀 TIGER 미국우주테크 ETF")
+        space_buy_target = st.number_input("매수 단가 (이하)", value=14000, step=50, key="sp_buy")
+        space_sell_target = st.number_input("매도 단가 (이상)", value=16000, step=50, key="sp_sell")
+    with col_tgt3:
+        st.markdown("#### 💎 이더리움(ETH)")
+        eth_buy_target = st.number_input("매수 단가 (이하)", value=3100000, step=100000, key="eth_buy")
+        eth_sell_target = st.number_input("매도 단가 (이상)", value=3500000, step=100000, key="eth_sell")
 
     st.markdown("---")
     if st.checkbox("🔄 24시간 무인 자동 감시 작동 - 1분마다"):
-        # ─── ⏱️ [회장님 전용 작전 시간 통제실] ───
+        # ─── ⏱️ [24시간 무한 추적 모드 설정] ───
         now = datetime.datetime.now()
-        
-        # 1. 요일 통제 (0=월, 1=화, 2=수, 3=목, 4=금 / 5=토, 6=일)
-        is_weekday = now.weekday() < 5  # < 5 이므로 월~금요일만 True가 됩니다.
-        
-        # 2. 시분 통제 (시작 시간 설정 : 8시 30분 ~ 종료 시간 설정 : 16시 00분)
+        is_weekday = True
         start_time = datetime.time(0, 1)
         end_time = datetime.time(23, 59)
         is_market_hours = start_time <= now.time() <= end_time
         
-        # 3. 최종 통신 허가 검사
         if is_weekday and is_market_hours:
-            st.info(f"🛰️ 현재 시각 {now.strftime('%H:%M:%S')} : 작전 시간 내 정상 가동 중...")
+            st.info(f"🛰️ 현재 시각 {now.strftime('%H:%M:%S')} : 24시간 무인 감시망 가동 중 (10분 주기)")
             
-            # 🏢 [대우건설 감시 로직]
+            # 1. 대우건설 감시 로직
             if dw_price > 0 and dw_price <= dw_buy_target and not st.session_state.dw_buy_fired:
-                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📉 [매수 경보] 대우건설 목표가 진입: {dw_price:,}원"})
+                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📉 [대우건설 매수 경보] 목표가 진입: {dw_price:,}원"})
                 st.session_state.dw_buy_fired = True
             if dw_price > dw_buy_target: st.session_state.dw_buy_fired = False
 
             if dw_price > 0 and dw_price >= dw_sell_target and not st.session_state.dw_sell_fired:
-                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📈 [매도 경보] 대우건설 목표가 돌파: {dw_price:,}원"})
+                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📈 [대우건설 매도 경보] 목표가 돌파: {dw_price:,}원"})
                 st.session_state.dw_sell_fired = True
             if dw_price < dw_sell_target: st.session_state.dw_sell_fired = False
             
-            # 🚀 [우주테크 ETF 감시 로직]
+            # 2. 우주테크 ETF 감시 로직
             if space_price > 0 and space_price <= space_buy_target and not st.session_state.space_buy_fired:
-                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📉 [매수 경보] 우주테크 ETF 목표가 진입: {space_price:,}원"})
+                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📉 [우주테크 ETF 매수 경보] 목표가 진입: {space_price:,}원"})
                 st.session_state.space_buy_fired = True
             if space_price > space_buy_target: st.session_state.space_buy_fired = False
 
             if space_price > 0 and space_price >= space_sell_target and not st.session_state.space_sell_fired:
-                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📈 [매도 경보] 우주테크 ETF 목표가 돌파: {space_price:,}원"})
+                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"📈 [우주테크 ETF 매도 경보] 목표가 돌파: {space_price:,}원"})
                 st.session_state.space_sell_fired = True
             if space_price < space_sell_target: st.session_state.space_sell_fired = False
+            
+            # 3. 이더리움 감시 로직 (신규 장착)
+            if eth_price > 0 and eth_price <= eth_buy_target and not st.session_state.eth_buy_fired:
+                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"💎📉 [이더리움 매수 경보] 목표가 진입: {eth_price:,}원"})
+                st.session_state.eth_buy_fired = True
+            if eth_price > eth_buy_target: st.session_state.eth_buy_fired = False
+
+            if eth_price > 0 and eth_price >= eth_sell_target and not st.session_state.eth_sell_fired:
+                requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": f"💎📈 [이더리움 매도 경보] 목표가 돌파: {eth_price:,}원"})
+                st.session_state.eth_sell_fired = True
+            if eth_price < eth_sell_target: st.session_state.eth_sell_fired = False
 
         else:
-            # 주말이거나 지정된 시간 외일 때 대기 모드 표출
-            st.warning(f"💤 현재 시각 {now.strftime('%H:%M:%S')} : 감시 휴식 모드 (평일 08:30~16:00에만 엔진이 회전합니다)")
+            st.warning("💤 시스템 재정비 시간입니다.")
         # ───────────────────────────────────────
         
-        time.sleep(60)  # 💡 주기를 바꿀 때는 이 숫자를 조절!
+        time.sleep(60)
         st.rerun()
