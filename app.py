@@ -113,14 +113,14 @@ with tab2:
     st.subheader("🛰️ 실시간 주가 감시판")
     col1, col2 = st.columns(2)
     with col1: dw_code = st.text_input("대우건설 종목코드", value="047040")
-    with col2: space_code = st.text_input("우주테크 ETF 종목코드", value="467220")
+    with col2: space_code = st.text_input("TIGER 미국우주테크 ETF 종목코드", value="0183J0")
     
     dw_price = get_naver_price(dw_code)
     space_price = get_naver_price(space_code)
     
     colA, colB = st.columns(2)
     with colA: st.metric("📊 대우건설 현재가", f"{dw_price:,} 원")
-    with colB: st.metric("🚀 tiger 미국우주테크 ETF 현재가", f"{space_price:,} 원")
+    with colB: st.metric("🚀 TIGER 미국우주테크 ETF 현재가", f"{space_price:,} 원")
     
     st.markdown("---")
     st.subheader("🚨 공방(攻防)형 자동 경보 시스템 설정")
@@ -132,8 +132,8 @@ with tab2:
         dw_sell_target = st.number_input("대우건설 매도 단가 (이상)", value=30000, step=50)
     with col_tgt2:
         st.markdown("### 🚀 우주테크 ETF 타격선")
-        space_buy_target = st.number_input("tiger 미국우주테크 ETF 매수 단가 (이하)", value=14000, step=50)
-        space_sell_target = st.number_input("tiger 미국우주테크 ETF 매도 단가 (이상)", value=16000, step=50)
+        space_buy_target = st.number_input("TIGER 미국우주테크 ETF 매수 단가 (이하)", value=14000, step=50)
+        space_sell_target = st.number_input("TIGER 미국우주테크 ETF 매도 단가 (이상)", value=16000, step=50)
 
     st.markdown("---")
     if st.checkbox("🔄 60초 간격 양방향 무인 자동 감시 작동"):
