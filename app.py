@@ -136,7 +136,7 @@ with tab2:
         space_sell_target = st.number_input("TIGER 미국우주테크 ETF 매도 단가 (이상)", value=16000, step=50)
 
     st.markdown("---")
-    if st.checkbox("🔄 무인 자동 감시 작동"):
+    if st.checkbox("🔄 24시간 무인 자동 감시 작동 - 1분마다"):
         # ─── ⏱️ [회장님 전용 작전 시간 통제실] ───
         now = datetime.datetime.now()
         
