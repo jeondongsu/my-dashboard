@@ -39,31 +39,22 @@ def get_upbit_price(ticker="KRW-ETH"):
 
 # 🏠 국토교통부 실거래가 API 저격 엔진 (V9.1 진짜 주소로 복구 완료)
 def get_real_estate_api(service_key, lawd_cd, deal_ymd):
+    # 정부 구형/신형 서버 2중 타격망
     urls = [
+        "http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev",
         "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
     ]
-    params = {'serviceKey': service_key, 'LAWD_CD': lawd_cd, 'DEAL_YMD': deal_ymd, 'numOfRows': '10'}
+    params = {'serviceKey': service_key, 'LAWD_CD': lawd_cd, 'DEAL_YMD': deal_ymd, 'numOfRows': '100'}
     
     for url in urls:
         try:
-            res = requests.get(url, params=params, timeout=10)
-            # 🚨 서버가 보내온 응답을 그대로 화면에 찍어봅니다 (디버깅)
-            if res.status_code != 200:
-                st.error(f"서버 접속 실패: {res.status_code}")
-                return pd.DataFrame()
-                
-            root = ET.fromstring(res.text)
-            result_code = root.find('.//resultCode').text
-            result_msg = root.find('.//resultMsg').text
-            
-            if result_code != '00':
-                # 여기서 서버가 거절한 이유를 정확히 보여줍니다.
-                st.error(f"정부 서버 거절 사유: {result_code} - {result_msg}")
-                return pd.DataFrame()
-
-            items = root.findall('.//item')
-            # ... (이하 데이터 파싱 코드는 동일)
-        try:
+            res = requests.get(url, params=params, timeout=5)
+            if res.status_code == 200:
+                root = ET.fromstring(res.text)
+                items = root.findall('.//item')
+                data = []
+                for item in items:
+                    try:
                         data.append({
                             '아파트명': item.find('아파트').text.strip(),
                             '거래금액(만원)': int(item.find('거래금액').text.strip().replace(',', '')),
