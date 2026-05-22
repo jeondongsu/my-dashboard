@@ -63,7 +63,7 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd):
 
             items = root.findall('.//item')
             # ... (이하 데이터 파싱 코드는 동일)
-                    try:
+        try:
                         data.append({
                             '아파트명': item.find('아파트').text.strip(),
                             '거래금액(만원)': int(item.find('거래금액').text.strip().replace(',', '')),
