@@ -142,8 +142,8 @@ with tab2:
     col_tgt1, col_tgt2, col_tgt3 = st.columns(3)
     with col_tgt1:
         st.markdown("#### 🏢 대우건설")
-        dw_buy_target = st.number_input("매수 단가 (이하)", value=3500, step=50, key="dw_buy")
-        dw_sell_target = st.number_input("매도 단가 (이상)", value=4500, step=50, key="dw_sell")
+        dw_buy_target = st.number_input("매수 단가 (이하)", value=28000, step=50, key="dw_buy")
+        dw_sell_target = st.number_input("매도 단가 (이상)", value=30000, step=50, key="dw_sell")
     with col_tgt2:
         st.markdown("#### 🚀 TIGER 미국우주테크 ETF")
         space_buy_target = st.number_input("매수 단가 (이하)", value=14000, step=50, key="sp_buy")
