@@ -134,10 +134,17 @@ with tab1:
             df_property = get_real_estate_api(API_KEY, target_region, target_month)
             
             if not df_property.empty:
-                st.success(f"📊 {target_month[:4]}년 {target_month[4:]}월 신고된 매매 내역입니다.")
-                st.dataframe(df_property, use_container_width=True)
-            else:
-                st.warning("⚠️ 해당 년월에 신고된 거래 데이터가 없거나 서버 응답이 지연되고 있습니다.")
+            # 💡 [핵심 추가] 거래금액(만원) 기준으로 오름차순(낮은 가격순) 정렬
+            df_property = df_property.sort_values(by='거래금액(만원)', ascending=True)
+            
+            # 정렬 후 뒤죽박죽된 맨 앞 번호(인덱스)를 1번부터 깔끔하게 재정리
+            df_property = df_property.reset_index(drop=True)
+            df_property.index = df_property.index + 1 
+
+            st.success(f"📊 {target_month[:4]}년 {target_month[4:]}월 신고된 매매 내역입니다.")
+            st.dataframe(df_property, use_container_width=True)
+        else:
+            st.warning("⚠️ 해당 년월에 신고된 거래 데이터가 없거나 서버 응답이 지연되고 있습니다.")
 
 with tab2:
     st.subheader("🛰️ 실시간 주식 및 가상자산 감시판")
