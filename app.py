@@ -38,9 +38,16 @@ def get_upbit_price(ticker="KRW-ETH"):
         return int(data[0]['trade_price'])
     except: return 0
 
-# 🏠 국토교통부 실거래가 API 저격 엔진 (통합 완성본)
-def get_real_estate_api(service_key, lawd_cd, deal_ymd):
-    url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
+# 🏠 국토교통부 실거래가 API 저격 엔진 (아파트/빌라 통합본)
+def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트"):
+    # 💡 매물 종류에 따라 정부 서버 주소와 이름표(태그)를 자동으로 스위칭합니다.
+    if prop_type == "아파트":
+        url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
+        name_tag = "aptNm"
+    else: # 빌라(연립/다세대)
+        url = "https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade"
+        name_tag = "mhouseNm"
+
     full_url = f"{url}?serviceKey={service_key}&LAWD_CD={lawd_cd}&DEAL_YMD={deal_ymd}&numOfRows=100"
     
     try:
@@ -52,25 +59,23 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd):
             data = []
             for item in items:
                 try:
-                    # 영문 태그(aptNm 등)로 정확히 매칭
-                    apt_name = item.find('aptNm').text.strip() if item.find('aptNm') is not None else "이름없음"
+                    # 매물 종류(아파트/빌라)에 맞춰 정확한 이름 추출
+                    name_node = item.find(name_tag)
+                    prop_name = name_node.text.strip() if name_node is not None else "이름없음"
+                    
                     price_str = item.find('dealAmount').text.strip().replace(',', '') if item.find('dealAmount') is not None else "0"
                     size = float(item.find('excluUseAr').text.strip()) if item.find('excluUseAr') is not None else 0.0
-                    floor = int(item.find('floor').text.strip()) if item.find('floor') is not None else 0
-                    month = item.find('dealMonth').text.strip() if item.find('dealMonth') is not None else ""
-                    day = item.find('dealDay').text.strip() if item.find('dealDay') is not None else ""
-                    
-                    # (위쪽 코드는 그대로 둡니다)
+                    floor_node = item.find('floor')
+                    floor = int(floor_node.text.strip()) if floor_node is not None else 0
                     month = item.find('dealMonth').text.strip() if item.find('dealMonth') is not None else "0"
                     day = item.find('dealDay').text.strip() if item.find('dealDay') is not None else "0"
                     
                     data.append({
-                        '아파트명': apt_name,
+                        '건물명': prop_name,  # '아파트명' 대신 범용적인 '건물명'으로 변경
                         '거래금액(만원)': int(price_str),
                         '전용면적(㎡)': size,
                         '층': floor,
-                        # 💡 핵심: .zfill(2)를 붙여서 3일을 '03일'로 만듭니다.
-                        '거래일': f"{month.zfill(2)}월 {day.zfill(2)}일" 
+                        '거래일': f"{month.zfill(2)}월 {day.zfill(2)}일"
                     })
                 except Exception:
                     continue
@@ -125,36 +130,36 @@ tab1, tab2 = st.tabs(["🏠 국토부 실거래가 자동 수집판", "📈 통�
 
 with tab1:
     st.subheader("🛰️ 공공데이터포털 실시간 실거래가 매핑")
-    col_req1, col_req2 = st.columns(2)
+    col_req1, col_req2, col_req3 = st.columns([2, 1, 2]) # 3칸으로 나눔
     with col_req1:
         target_region = st.selectbox("타격 대상 지역 선택", 
                                      options=["41171", "41210", "11500"], 
                                      format_func=lambda x: "안양시 만안구" if x=="41171" else "광명시" if x=="41210" else "서울 강서구")
     with col_req2:
         target_month = st.text_input("조회 년월 (YYYYMM)", value="202604")
+    with col_req3:
+        # 💡 [핵심 추가] 아파트와 빌라를 선택할 수 있는 스위치
+        prop_type = st.radio("수집 매물 종류", ["아파트", "빌라(연립/다세대)"], horizontal=True)
         
-    # 💡 [핵심 1] 데이터를 안전하게 보관할 '메모리 창고'를 하나 만듭니다.
     if 'real_estate_data' not in st.session_state:
         st.session_state.real_estate_data = None
         
     if st.button("🔍 국토교통부 실거래가 레이더 가동"):
-        with st.spinner("국토부 서버에서 최신 실거래 내역을 수집하는 중..."):
-            df_property = get_real_estate_api(API_KEY, target_region, target_month)
+        with st.spinner(f"국토부 서버에서 최신 {prop_type} 실거래 내역을 수집하는 중..."):
+            # 💡 선택한 매물 종류(prop_type)를 함수에 같이 전달
+            df_property = get_real_estate_api(API_KEY, target_region, target_month, prop_type)
             
             if not df_property.empty:
                 df_property = df_property.sort_values(by='거래금액(만원)', ascending=True)
                 df_property = df_property.reset_index(drop=True)
-                df_property.index = df_property.index + 1
-                
-                # 💡 [핵심 2] 수집된 표 데이터를 창고에 꽉꽉 채워 넣습니다.
+                df_property.index = df_property.index + 1 
                 st.session_state.real_estate_data = df_property
             else:
                 st.warning("⚠️ 해당 년월에 신고된 거래 데이터가 없거나 서버 응답이 지연되고 있습니다.")
-                st.session_state.real_estate_data = None # 데이터가 없으면 창고를 비웁니다.
+                st.session_state.real_estate_data = None
 
-    # 💡 [핵심 3] 버튼이 눌려있든 아니든, 1분마다 새로고침 될 때 창고에 데이터가 있다면 무조건 화면에 다시 그립니다.
     if st.session_state.real_estate_data is not None:
-        st.success(f"📊 {target_month[:4]}년 {target_month[4:]}월 신고된 매매 내역입니다.")
+        st.success(f"📊 {target_month[:4]}년 {target_month[4:]}월 신고된 [{prop_type}] 매매 내역입니다.")
         st.dataframe(st.session_state.real_estate_data, use_container_width=True)
 
 with tab2:
