@@ -63,25 +63,24 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd):
             items = root.findall('.//item')
             data = []
             for item in items:
-                # 데이터가 없는 항목이 있을 수 있으니 안전하게 추출
-                try:
-                    apt_name = item.find('아파트').text.strip() if item.find('아파트') is not None else "이름없음"
-                    price_str = item.find('거래금액').text.strip().replace(',', '') if item.find('거래금액') is not None else "0"
-                    size = float(item.find('전용면적').text.strip()) if item.find('전용면적') is not None else 0.0
-                    floor = int(item.find('층').text.strip()) if item.find('층') is not None else 0
-                    month = item.find('월').text.strip() if item.find('월') is not None else ""
-                    day = item.find('일').text.strip() if item.find('일') is not None else ""
-                    
-                    data.append({
-                        '아파트명': apt_name,
-                        '거래금액(만원)': int(price_str),
-                        '전용면적(㎡)': size,
-                        '층': floor,
-                        '거래일': f"{month}월 {day}일"
-                    })
-                except Exception as e:
-                    print(f"데이터 파싱 오류: {e}") 
-                    continue # 한 항목에서 에러나도 다음 아파트는 계속 수집
+                        try:
+                            # 💡 신형 API의 영문 태그명(aptNm, dealAmount 등)으로 매칭
+                            apt_name = item.find('aptNm').text.strip() if item.find('aptNm') is not None else "이름없음"
+                            price_str = item.find('dealAmount').text.strip().replace(',', '') if item.find('dealAmount') is not None else "0"
+                            size = float(item.find('excluUseAr').text.strip()) if item.find('excluUseAr') is not None else 0.0
+                            floor = int(item.find('floor').text.strip()) if item.find('floor') is not None else 0
+                            month = item.find('dealMonth').text.strip() if item.find('dealMonth') is not None else ""
+                            day = item.find('dealDay').text.strip() if item.find('dealDay') is not None else ""
+                            
+                            data.append({
+                                '아파트명': apt_name,
+                                '거래금액(만원)': int(price_str),
+                                '전용면적(㎡)': size,
+                                '층': floor,
+                                '거래일': f"{month}월 {day}일"
+                            })
+                        except Exception as e:
+                            continue # 데이터 하나가 이상해도 전체가 멈추지 않도록 패스
                     
             if data: 
                 return pd.DataFrame(data)
