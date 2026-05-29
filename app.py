@@ -7,7 +7,7 @@ import datetime
 import xml.etree.ElementTree as ET
 from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(layout="wide", page_title="통합 지휘소 V9.3")
+st.set_page_config(layout="wide", page_title="통합 지휘소 V9.4")
 
 # --- [상태 관리 시스템: 6대 알림망 독립 제어] ---
 if 'dw_buy_fired' not in st.session_state: st.session_state.dw_buy_fired = False
@@ -38,7 +38,7 @@ def get_upbit_price(ticker="KRW-ETH"):
         return int(data[0]['trade_price'])
     except: return 0
 
-# 🏠 국토교통부 실거래가 API 저격 엔진 (평수 계산 추가 완료)
+# 🏠 국토교통부 실거래가 API 저격 엔진
 def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트", deal_type="매매"):
     if prop_type == "아파트" and deal_type == "매매":
         url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
@@ -68,8 +68,7 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트", d
                     prop_name = name_node.text.strip() if name_node is not None else "이름없음"
                     
                     size = float(item.find('excluUseAr').text.strip()) if item.find('excluUseAr') is not None else 0.0
-                    # 💡 [핵심 추가] 평수 계산 (소수점 첫째 자리까지 반올림)
-                    pyeong = round(size * 0.3025, 1)
+                    pyeong = round(size * 0.3025, 1) # 평수 계산
                     
                     floor_node = item.find('floor')
                     floor = int(floor_node.text.strip()) if floor_node is not None else 0
@@ -82,7 +81,7 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트", d
                             '건물명': prop_name,
                             '거래금액(만원)': int(price_str),
                             '전용면적(㎡)': size,
-                            '전용면적(평)': pyeong,  # 💡 전용면적 옆에 안착
+                            '전용면적(평)': pyeong,
                             '층': floor,
                             '계약일': f"{month.zfill(2)}월 {day.zfill(2)}일"
                         })
@@ -94,7 +93,7 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트", d
                             '보증금(만원)': int(deposit_str),
                             '월세(만원)': int(monthly_str),
                             '전용면적(㎡)': size,
-                            '전용면적(평)': pyeong,  # 💡 전용면적 옆에 안착
+                            '전용면적(평)': pyeong,
                             '층': floor,
                             '계약일': f"{month.zfill(2)}월 {day.zfill(2)}일"
                         })
@@ -145,18 +144,37 @@ if dsr <= 40: st.sidebar.success("✅ 대출 안전권")
 else: st.sidebar.error("🚨 한도 초과 위험!")
 
 # --- [메인 화면] 작전 제어판 ---
-st.title("🏢 DONGS 전용 무인 감시 지휘소 (V9.3) - 수정일 26년 5월 29일 (금)")
+st.title("🏢 SD 전용 무인 감시 지휘소 (V9.4)")
 
 tab1, tab2 = st.tabs(["🏠 국토부 실거래가 자동 수집판", "📈 통합 자산 무인 감시망"])
 
 with tab1:
     st.subheader("🛰️ 공공데이터포털 실시간 실거래가 매핑")
     
+    # 💡 [핵심] 서울/경기/인천 수도권 주요 타격 지역 코드 사전
+    region_codes = {
+        # --- 서울 ---
+        "11500": "서울 강서구",
+        "11680": "서울 강남구",
+        "11710": "서울 송파구",
+        "11440": "서울 마포구",
+        # --- 경기 ---
+        "41171": "경기 안양시 만안구",
+        "41210": "경기 광명시",
+        "41135": "경기 성남시 분당구",
+        "41290": "경기 과천시",
+        # --- 인천 ---
+        "28185": "인천 연수구 (송도)",
+        "28237": "인천 부평구",
+        "28260": "인천 서구 (청라)"
+    }
+    
     col_req1, col_req2 = st.columns(2)
     with col_req1:
+        # 사전에서 자동으로 지역명 목록을 끌어옵니다.
         target_region = st.selectbox("타격 대상 지역 선택", 
-                                     options=["41171", "41210", "11500"], 
-                                     format_func=lambda x: "안양시 만안구" if x=="41171" else "광명시" if x=="41210" else "서울 강서구")
+                                     options=list(region_codes.keys()), 
+                                     format_func=lambda x: region_codes[x])
     with col_req2:
         target_month = st.text_input("조회 년월 (YYYYMM)", value="202604")
         
@@ -220,7 +238,6 @@ with tab2:
     if st.checkbox("🔄 24시간 무인 자동 감시 작동 - 1분마다"):
         st_autorefresh(interval=60000, limit=None, key="auto_refresh")
         
-        # 💡 대한민국 시간(KST) 적용 완료
         kst = datetime.timezone(datetime.timedelta(hours=9))
         now = datetime.datetime.now(kst)
         is_weekday = True
