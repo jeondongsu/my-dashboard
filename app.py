@@ -7,7 +7,7 @@ import datetime
 import xml.etree.ElementTree as ET
 from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(layout="wide", page_title="통합 지휘소 V9.1 (API 복구)")
+st.set_page_config(layout="wide", page_title="통합 지휘소 V9.2")
 
 # --- [상태 관리 시스템: 6대 알림망 독립 제어] ---
 if 'dw_buy_fired' not in st.session_state: st.session_state.dw_buy_fired = False
@@ -38,9 +38,8 @@ def get_upbit_price(ticker="KRW-ETH"):
         return int(data[0]['trade_price'])
     except: return 0
 
-# 🏠 국토교통부 실거래가 API 저격 엔진 (매매/전월세 통합본)
+# 🏠 국토교통부 실거래가 API 저격 엔진 (매매/전월세 완벽 통합본)
 def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트", deal_type="매매"):
-    # 💡 매물 종류와 거래 유형에 따라 4가지 정부 서버 주소(URL)를 자동 스위칭
     if prop_type == "아파트" and deal_type == "매매":
         url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
         name_tag = "aptNm"
@@ -50,7 +49,7 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트", d
     elif prop_type == "빌라(연립/다세대)" and deal_type == "매매":
         url = "https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade"
         name_tag = "mhouseNm"
-    else: # 빌라 전/월세
+    else: 
         url = "https://apis.data.go.kr/1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent"
         name_tag = "mhouseNm"
 
@@ -74,7 +73,6 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트", d
                     month = item.find('dealMonth').text.strip() if item.find('dealMonth') is not None else "0"
                     day = item.find('dealDay').text.strip() if item.find('dealDay') is not None else "0"
                     
-                    # 매매인지 전월세인지에 따라 수집하는 데이터(돈)가 다름
                     if deal_type == "매매":
                         price_str = item.find('dealAmount').text.strip().replace(',', '') if item.find('dealAmount') is not None else "0"
                         data.append({
@@ -84,7 +82,7 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트", d
                             '층': floor,
                             '계약일': f"{month.zfill(2)}월 {day.zfill(2)}일"
                         })
-                    else: # 전/월세
+                    else: 
                         deposit_str = item.find('deposit').text.strip().replace(',', '') if item.find('deposit') is not None else "0"
                         monthly_str = item.find('monthlyRent').text.strip().replace(',', '') if item.find('monthlyRent') is not None else "0"
                         data.append({
@@ -142,14 +140,13 @@ if dsr <= 40: st.sidebar.success("✅ 대출 안전권")
 else: st.sidebar.error("🚨 한도 초과 위험!")
 
 # --- [메인 화면] 작전 제어판 ---
-st.title("🏢 SD 전용 무인 감시 지휘소 (V9.1)")
+st.title("🏢 SD 전용 무인 감시 지휘소 (V9.2)")
 
 tab1, tab2 = st.tabs(["🏠 국토부 실거래가 자동 수집판", "📈 통합 자산 무인 감시망"])
 
 with tab1:
     st.subheader("🛰️ 공공데이터포털 실시간 실거래가 매핑")
     
-    # 조종판을 2줄로 나누어 깔끔하게 배치
     col_req1, col_req2 = st.columns(2)
     with col_req1:
         target_region = st.selectbox("타격 대상 지역 선택", 
@@ -162,7 +159,6 @@ with tab1:
     with col_req3:
         prop_type = st.radio("수집 매물 종류", ["아파트", "빌라(연립/다세대)"], horizontal=True)
     with col_req4:
-        # 💡 [핵심 추가] 매매와 전월세를 선택하는 스위치
         deal_type = st.radio("거래 유형", ["매매", "전/월세"], horizontal=True)
         
     if 'real_estate_data' not in st.session_state:
@@ -170,27 +166,10 @@ with tab1:
         
     if st.button("🔍 국토교통부 실거래가 레이더 가동"):
         with st.spinner(f"국토부 서버에서 최신 [{prop_type} - {deal_type}] 내역을 수집하는 중..."):
-            
-            # --- 👇 디버깅을 위해 잠시 추가하는 코드 👇 ---
-            if deal_type == "전/월세":
-                if prop_type == "아파트":
-                    test_url = f"https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent?serviceKey={API_KEY}&LAWD_CD={target_region}&DEAL_YMD={target_month}&numOfRows=10"
-                else:
-                    test_url = f"https://apis.data.go.kr/1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent?serviceKey={API_KEY}&LAWD_CD={target_region}&DEAL_YMD={target_month}&numOfRows=10"
-                
-                res = requests.get(test_url, timeout=10)
-                st.error("🚨 전/월세 서버 원본 응답 결과 🚨")
-                st.code(res.text) # 원본 데이터 화면 출력
-                st.stop() # 테스트를 위해 여기서 멈춤
-            # --- 👆 여기까지 👆 ---
-
-            # (아래는 기존 코드 그대로 유지)
-            df_property = get_real_estate_api(API_KEY, target_region, target_month, prop_type, deal_type)
-            # 함수에 매물종류(prop_type)와 거래유형(deal_type)을 모두 넘겨줍니다.
             df_property = get_real_estate_api(API_KEY, target_region, target_month, prop_type, deal_type)
             
             if not df_property.empty:
-                # 💡 거래 유형에 따라 정렬 기준을 다르게 적용
+                # 거래 유형에 맞는 정렬 기준 설정
                 sort_col = '거래금액(만원)' if deal_type == "매매" else '보증금(만원)'
                 df_property = df_property.sort_values(by=sort_col, ascending=True)
                 df_property = df_property.reset_index(drop=True)
