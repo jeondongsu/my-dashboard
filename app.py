@@ -60,12 +60,17 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd):
                     month = item.find('dealMonth').text.strip() if item.find('dealMonth') is not None else ""
                     day = item.find('dealDay').text.strip() if item.find('dealDay') is not None else ""
                     
+                    # (위쪽 코드는 그대로 둡니다)
+                    month = item.find('dealMonth').text.strip() if item.find('dealMonth') is not None else "0"
+                    day = item.find('dealDay').text.strip() if item.find('dealDay') is not None else "0"
+                    
                     data.append({
                         '아파트명': apt_name,
                         '거래금액(만원)': int(price_str),
                         '전용면적(㎡)': size,
                         '층': floor,
-                        '거래일': f"{month}월 {day}일"
+                        # 💡 핵심: .zfill(2)를 붙여서 3일을 '03일'로 만듭니다.
+                        '거래일': f"{month.zfill(2)}월 {day.zfill(2)}일" 
                     })
                 except Exception:
                     continue
