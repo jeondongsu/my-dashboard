@@ -7,7 +7,7 @@ import datetime
 import xml.etree.ElementTree as ET
 from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(layout="wide", page_title="통합 지휘소 V9.2")
+st.set_page_config(layout="wide", page_title="통합 지휘소 V9.3")
 
 # --- [상태 관리 시스템: 6대 알림망 독립 제어] ---
 if 'dw_buy_fired' not in st.session_state: st.session_state.dw_buy_fired = False
@@ -38,7 +38,7 @@ def get_upbit_price(ticker="KRW-ETH"):
         return int(data[0]['trade_price'])
     except: return 0
 
-# 🏠 국토교통부 실거래가 API 저격 엔진 (매매/전월세 완벽 통합본)
+# 🏠 국토교통부 실거래가 API 저격 엔진 (평수 계산 추가 완료)
 def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트", deal_type="매매"):
     if prop_type == "아파트" and deal_type == "매매":
         url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
@@ -68,6 +68,9 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트", d
                     prop_name = name_node.text.strip() if name_node is not None else "이름없음"
                     
                     size = float(item.find('excluUseAr').text.strip()) if item.find('excluUseAr') is not None else 0.0
+                    # 💡 [핵심 추가] 평수 계산 (소수점 첫째 자리까지 반올림)
+                    pyeong = round(size * 0.3025, 1)
+                    
                     floor_node = item.find('floor')
                     floor = int(floor_node.text.strip()) if floor_node is not None else 0
                     month = item.find('dealMonth').text.strip() if item.find('dealMonth') is not None else "0"
@@ -79,6 +82,7 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트", d
                             '건물명': prop_name,
                             '거래금액(만원)': int(price_str),
                             '전용면적(㎡)': size,
+                            '전용면적(평)': pyeong,  # 💡 전용면적 옆에 안착
                             '층': floor,
                             '계약일': f"{month.zfill(2)}월 {day.zfill(2)}일"
                         })
@@ -90,6 +94,7 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트", d
                             '보증금(만원)': int(deposit_str),
                             '월세(만원)': int(monthly_str),
                             '전용면적(㎡)': size,
+                            '전용면적(평)': pyeong,  # 💡 전용면적 옆에 안착
                             '층': floor,
                             '계약일': f"{month.zfill(2)}월 {day.zfill(2)}일"
                         })
@@ -140,7 +145,7 @@ if dsr <= 40: st.sidebar.success("✅ 대출 안전권")
 else: st.sidebar.error("🚨 한도 초과 위험!")
 
 # --- [메인 화면] 작전 제어판 ---
-st.title("🏢 SD 전용 무인 감시 지휘소 (V9.2)")
+st.title("🏢 SD 전용 무인 감시 지휘소 (V9.3)")
 
 tab1, tab2 = st.tabs(["🏠 국토부 실거래가 자동 수집판", "📈 통합 자산 무인 감시망"])
 
@@ -169,7 +174,6 @@ with tab1:
             df_property = get_real_estate_api(API_KEY, target_region, target_month, prop_type, deal_type)
             
             if not df_property.empty:
-                # 거래 유형에 맞는 정렬 기준 설정
                 sort_col = '거래금액(만원)' if deal_type == "매매" else '보증금(만원)'
                 df_property = df_property.sort_values(by=sort_col, ascending=True)
                 df_property = df_property.reset_index(drop=True)
@@ -216,7 +220,7 @@ with tab2:
     if st.checkbox("🔄 24시간 무인 자동 감시 작동 - 1분마다"):
         st_autorefresh(interval=60000, limit=None, key="auto_refresh")
         
-        # 💡 [핵심 추가] 서버 시간에 9시간을 더해 한국 표준시(KST)로 강제 고정합니다.
+        # 💡 대한민국 시간(KST) 적용 완료
         kst = datetime.timezone(datetime.timedelta(hours=9))
         now = datetime.datetime.now(kst)
         is_weekday = True
