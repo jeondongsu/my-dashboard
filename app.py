@@ -4,7 +4,6 @@ import pandas as pd
 import requests
 import re
 import datetime
-import time
 import xml.etree.ElementTree as ET
 from streamlit_autorefresh import st_autorefresh
 
@@ -39,53 +38,42 @@ def get_upbit_price(ticker="KRW-ETH"):
         return int(data[0]['trade_price'])
     except: return 0
 
-# 🏠 국토교통부 실거래가 API 저격 엔진 (V9.1 진짜 주소로 복구 완료)
-# 🏠 국토교통부 실거래가 API 저격 엔진 (수정본)
+# 🏠 국토교통부 실거래가 API 저격 엔진 (통합 완성본)
 def get_real_estate_api(service_key, lawd_cd, deal_ymd):
-    # 최신 신형 서버 주소
-    url = "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
-    
-    # 💡 핵심: 인증키가 이중 인코딩 되지 않도록 URL을 직접 조립합니다.
+    url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
     full_url = f"{url}?serviceKey={service_key}&LAWD_CD={lawd_cd}&DEAL_YMD={deal_ymd}&numOfRows=100"
     
     try:
-        res = requests.get(full_url, timeout=10) # 타임아웃을 10초로 넉넉하게
+        res = requests.get(full_url, timeout=10)
         
         if res.status_code == 200:
             root = ET.fromstring(res.text)
-            
-            # API 에러 메시지가 반환되었는지 확인용 (터미널 출력)
-            result_code = root.find('.//resultCode')
-            if result_code is not None and result_code.text != "00":
-                print(f"API 오류 발생: {root.find('.//resultMsg').text}")
-                return pd.DataFrame()
-
             items = root.findall('.//item')
             data = []
             for item in items:
-                        try:
-                            # 💡 신형 API의 영문 태그명(aptNm, dealAmount 등)으로 매칭
-                            apt_name = item.find('aptNm').text.strip() if item.find('aptNm') is not None else "이름없음"
-                            price_str = item.find('dealAmount').text.strip().replace(',', '') if item.find('dealAmount') is not None else "0"
-                            size = float(item.find('excluUseAr').text.strip()) if item.find('excluUseAr') is not None else 0.0
-                            floor = int(item.find('floor').text.strip()) if item.find('floor') is not None else 0
-                            month = item.find('dealMonth').text.strip() if item.find('dealMonth') is not None else ""
-                            day = item.find('dealDay').text.strip() if item.find('dealDay') is not None else ""
-                            
-                            data.append({
-                                '아파트명': apt_name,
-                                '거래금액(만원)': int(price_str),
-                                '전용면적(㎡)': size,
-                                '층': floor,
-                                '거래일': f"{month}월 {day}일"
-                            })
-                        except Exception as e:
-                            continue # 데이터 하나가 이상해도 전체가 멈추지 않도록 패스
+                try:
+                    # 영문 태그(aptNm 등)로 정확히 매칭
+                    apt_name = item.find('aptNm').text.strip() if item.find('aptNm') is not None else "이름없음"
+                    price_str = item.find('dealAmount').text.strip().replace(',', '') if item.find('dealAmount') is not None else "0"
+                    size = float(item.find('excluUseAr').text.strip()) if item.find('excluUseAr') is not None else 0.0
+                    floor = int(item.find('floor').text.strip()) if item.find('floor') is not None else 0
+                    month = item.find('dealMonth').text.strip() if item.find('dealMonth') is not None else ""
+                    day = item.find('dealDay').text.strip() if item.find('dealDay') is not None else ""
+                    
+                    data.append({
+                        '아파트명': apt_name,
+                        '거래금액(만원)': int(price_str),
+                        '전용면적(㎡)': size,
+                        '층': floor,
+                        '거래일': f"{month}월 {day}일"
+                    })
+                except Exception:
+                    continue
                     
             if data: 
                 return pd.DataFrame(data)
-    except Exception as e:
-        print(f"서버 접속 오류: {e}")
+    except Exception:
+        pass
         
     return pd.DataFrame()
 
@@ -138,53 +126,18 @@ with tab1:
                                      options=["41171", "41210", "11500"], 
                                      format_func=lambda x: "안양시 만안구" if x=="41171" else "광명시" if x=="41210" else "서울 강서구")
     with col_req2:
-        target_month = st.text_input("조회 년월 (YYYYMM)", value=datetime.datetime.now().strftime("%Y%m"))
+        target_month = st.text_input("조회 년월 (YYYYMM)", value="202604")
         
     if st.button("🔍 국토교통부 실거래가 레이더 가동"):
         with st.spinner("국토부 서버에서 최신 실거래 내역을 수집하는 중..."):
+            # 깔끔하게 정리된 함수 호출
+            df_property = get_real_estate_api(API_KEY, target_region, target_month)
             
-            # https 적용 완료 및 직접 URL 결합 방식
-            url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
-            full_url = f"{url}?serviceKey={API_KEY}&LAWD_CD={target_region}&DEAL_YMD={target_month}&numOfRows=100"
-            
-            try:
-                res = requests.get(full_url, timeout=10)
-                
-                if res.status_code == 200:
-                    root = ET.fromstring(res.text)
-                    items = root.findall('.//item')
-                    data = []
-                    
-                    for item in items:
-                        try:
-                            # 만약 항목이 없으면 빈칸이나 0으로 안전하게 처리
-                            apt_name = item.find('아파트').text.strip() if item.find('아파트') is not None else "이름없음"
-                            price_str = item.find('거래금액').text.strip().replace(',', '') if item.find('거래금액') is not None else "0"
-                            size = float(item.find('전용면적').text.strip()) if item.find('전용면적') is not None else 0.0
-                            floor = int(item.find('층').text.strip()) if item.find('층') is not None else 0
-                            month = item.find('월').text.strip() if item.find('월') is not None else ""
-                            day = item.find('일').text.strip() if item.find('일') is not None else ""
-                            
-                            data.append({
-                                '아파트명': apt_name,
-                                '거래금액(만원)': int(price_str),
-                                '전용면적(㎡)': size,
-                                '층': floor,
-                                '거래일': f"{month}월 {day}일"
-                            })
-                        except Exception as e:
-                            continue # 데이터 하나가 이상해도 전체가 멈추지 않도록 패스
-                            
-                    if data:
-                        df_property = pd.DataFrame(data)
-                        st.success(f"📊 {target_month[:4]}년 {target_month[4:]}월 신고된 매매 내역입니다.")
-                        st.dataframe(df_property, use_container_width=True)
-                    else:
-                        st.warning("⚠️ 해당 년월에 신고된 거래 데이터가 없습니다.")
-                else:
-                    st.error("🚨 서버 통신 실패. 잠시 후 다시 시도해주세요.")
-            except Exception as e:
-                 st.error(f"🚨 오류 발생: {e}")
+            if not df_property.empty:
+                st.success(f"📊 {target_month[:4]}년 {target_month[4:]}월 신고된 매매 내역입니다.")
+                st.dataframe(df_property, use_container_width=True)
+            else:
+                st.warning("⚠️ 해당 년월에 신고된 거래 데이터가 없거나 서버 응답이 지연되고 있습니다.")
 
 with tab2:
     st.subheader("🛰️ 실시간 주식 및 가상자산 감시판")
@@ -215,9 +168,8 @@ with tab2:
         eth_buy_target = st.number_input("매수 단가 (이하)", value=3100000, step=100000, key="eth_buy")
         eth_sell_target = st.number_input("매도 단가 (이상)", value=3500000, step=100000, key="eth_sell")
 
-        st.markdown("---")
+    st.markdown("---")
     if st.checkbox("🔄 24시간 무인 자동 감시 작동 - 1분마다"):
-        # 1분(60,000ms)마다 Streamlit이 안전하게 화면을 새로고침합니다.
         st_autorefresh(interval=60000, limit=None, key="auto_refresh")
         
         now = datetime.datetime.now()
@@ -261,6 +213,3 @@ with tab2:
 
         else:
             st.warning("💤 시스템 재정비 시간입니다.")
-        
-        #time.sleep(60)
-        #st.rerun()
