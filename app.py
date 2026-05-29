@@ -1,3 +1,4 @@
+import urllib.parse
 import streamlit as st
 import pandas as pd
 import requests
@@ -5,6 +6,7 @@ import re
 import datetime
 import time
 import xml.etree.ElementTree as ET
+from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(layout="wide", page_title="통합 지휘소 V9.1 (API 복구)")
 
@@ -38,34 +40,54 @@ def get_upbit_price(ticker="KRW-ETH"):
     except: return 0
 
 # 🏠 국토교통부 실거래가 API 저격 엔진 (V9.1 진짜 주소로 복구 완료)
+# 🏠 국토교통부 실거래가 API 저격 엔진 (수정본)
 def get_real_estate_api(service_key, lawd_cd, deal_ymd):
-    # 정부 구형/신형 서버 2중 타격망
-    urls = [
-        "http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev",
-        "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
-    ]
-    params = {'serviceKey': service_key, 'LAWD_CD': lawd_cd, 'DEAL_YMD': deal_ymd, 'numOfRows': '100'}
+    # 최신 신형 서버 주소
+    url = "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
     
-    for url in urls:
-        try:
-            res = requests.get(url, params=params, timeout=5)
-            if res.status_code == 200:
-                root = ET.fromstring(res.text)
-                items = root.findall('.//item')
-                data = []
-                for item in items:
-                    try:
-                        data.append({
-                            '아파트명': item.find('아파트').text.strip(),
-                            '거래금액(만원)': int(item.find('거래금액').text.strip().replace(',', '')),
-                            '전용면적(㎡)': float(item.find('전용면적').text.strip()),
-                            '층': int(item.find('층').text.strip()),
-                            '거래일': f"{item.find('월').text.strip()}월 {item.find('일').text.strip()}일"
-                        })
-                    except: continue
-                if data: 
-                    return pd.DataFrame(data)
-        except: pass
+    # 💡 핵심: 인증키가 이중 인코딩 되지 않도록 URL을 직접 조립합니다.
+    full_url = f"{url}?serviceKey={service_key}&LAWD_CD={lawd_cd}&DEAL_YMD={deal_ymd}&numOfRows=100"
+    
+    try:
+        res = requests.get(full_url, timeout=10) # 타임아웃을 10초로 넉넉하게
+        
+        if res.status_code == 200:
+            root = ET.fromstring(res.text)
+            
+            # API 에러 메시지가 반환되었는지 확인용 (터미널 출력)
+            result_code = root.find('.//resultCode')
+            if result_code is not None and result_code.text != "00":
+                print(f"API 오류 발생: {root.find('.//resultMsg').text}")
+                return pd.DataFrame()
+
+            items = root.findall('.//item')
+            data = []
+            for item in items:
+                # 데이터가 없는 항목이 있을 수 있으니 안전하게 추출
+                try:
+                    apt_name = item.find('아파트').text.strip() if item.find('아파트') is not None else "이름없음"
+                    price_str = item.find('거래금액').text.strip().replace(',', '') if item.find('거래금액') is not None else "0"
+                    size = float(item.find('전용면적').text.strip()) if item.find('전용면적') is not None else 0.0
+                    floor = int(item.find('층').text.strip()) if item.find('층') is not None else 0
+                    month = item.find('월').text.strip() if item.find('월') is not None else ""
+                    day = item.find('일').text.strip() if item.find('일') is not None else ""
+                    
+                    data.append({
+                        '아파트명': apt_name,
+                        '거래금액(만원)': int(price_str),
+                        '전용면적(㎡)': size,
+                        '층': floor,
+                        '거래일': f"{month}월 {day}일"
+                    })
+                except Exception as e:
+                    print(f"데이터 파싱 오류: {e}") 
+                    continue # 한 항목에서 에러나도 다음 아파트는 계속 수집
+                    
+            if data: 
+                return pd.DataFrame(data)
+    except Exception as e:
+        print(f"서버 접속 오류: {e}")
+        
     return pd.DataFrame()
 
 # 🔐 금고(Secrets)에서 보안 키 호출
@@ -157,8 +179,11 @@ with tab2:
         eth_buy_target = st.number_input("매수 단가 (이하)", value=3100000, step=100000, key="eth_buy")
         eth_sell_target = st.number_input("매도 단가 (이상)", value=3500000, step=100000, key="eth_sell")
 
-    st.markdown("---")
+        st.markdown("---")
     if st.checkbox("🔄 24시간 무인 자동 감시 작동 - 1분마다"):
+        # 1분(60,000ms)마다 Streamlit이 안전하게 화면을 새로고침합니다.
+        st_autorefresh(interval=60000, limit=None, key="auto_refresh")
+        
         now = datetime.datetime.now()
         is_weekday = True
         start_time = datetime.time(0, 1)
@@ -201,5 +226,5 @@ with tab2:
         else:
             st.warning("💤 시스템 재정비 시간입니다.")
         
-        time.sleep(60)
-        st.rerun()
+        #time.sleep(60)
+        #st.rerun()
