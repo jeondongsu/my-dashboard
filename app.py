@@ -170,6 +170,22 @@ with tab1:
         
     if st.button("🔍 국토교통부 실거래가 레이더 가동"):
         with st.spinner(f"국토부 서버에서 최신 [{prop_type} - {deal_type}] 내역을 수집하는 중..."):
+            
+            # --- 👇 디버깅을 위해 잠시 추가하는 코드 👇 ---
+            if deal_type == "전/월세":
+                if prop_type == "아파트":
+                    test_url = f"https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent?serviceKey={API_KEY}&LAWD_CD={target_region}&DEAL_YMD={target_month}&numOfRows=10"
+                else:
+                    test_url = f"https://apis.data.go.kr/1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent?serviceKey={API_KEY}&LAWD_CD={target_region}&DEAL_YMD={target_month}&numOfRows=10"
+                
+                res = requests.get(test_url, timeout=10)
+                st.error("🚨 전/월세 서버 원본 응답 결과 🚨")
+                st.code(res.text) # 원본 데이터 화면 출력
+                st.stop() # 테스트를 위해 여기서 멈춤
+            # --- 👆 여기까지 👆 ---
+
+            # (아래는 기존 코드 그대로 유지)
+            df_property = get_real_estate_api(API_KEY, target_region, target_month, prop_type, deal_type)
             # 함수에 매물종류(prop_type)와 거래유형(deal_type)을 모두 넘겨줍니다.
             df_property = get_real_estate_api(API_KEY, target_region, target_month, prop_type, deal_type)
             
