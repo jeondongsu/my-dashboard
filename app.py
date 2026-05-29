@@ -38,14 +38,20 @@ def get_upbit_price(ticker="KRW-ETH"):
         return int(data[0]['trade_price'])
     except: return 0
 
-# 🏠 국토교통부 실거래가 API 저격 엔진 (아파트/빌라 통합본)
-def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트"):
-    # 💡 매물 종류에 따라 정부 서버 주소와 이름표(태그)를 자동으로 스위칭합니다.
-    if prop_type == "아파트":
+# 🏠 국토교통부 실거래가 API 저격 엔진 (매매/전월세 통합본)
+def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트", deal_type="매매"):
+    # 💡 매물 종류와 거래 유형에 따라 4가지 정부 서버 주소(URL)를 자동 스위칭
+    if prop_type == "아파트" and deal_type == "매매":
         url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
         name_tag = "aptNm"
-    else: # 빌라(연립/다세대)
+    elif prop_type == "아파트" and deal_type == "전/월세":
+        url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent"
+        name_tag = "aptNm"
+    elif prop_type == "빌라(연립/다세대)" and deal_type == "매매":
         url = "https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade"
+        name_tag = "mhouseNm"
+    else: # 빌라 전/월세
+        url = "https://apis.data.go.kr/1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent"
         name_tag = "mhouseNm"
 
     full_url = f"{url}?serviceKey={service_key}&LAWD_CD={lawd_cd}&DEAL_YMD={deal_ymd}&numOfRows=100"
@@ -59,24 +65,36 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, prop_type="아파트"):
             data = []
             for item in items:
                 try:
-                    # 매물 종류(아파트/빌라)에 맞춰 정확한 이름 추출
                     name_node = item.find(name_tag)
                     prop_name = name_node.text.strip() if name_node is not None else "이름없음"
                     
-                    price_str = item.find('dealAmount').text.strip().replace(',', '') if item.find('dealAmount') is not None else "0"
                     size = float(item.find('excluUseAr').text.strip()) if item.find('excluUseAr') is not None else 0.0
                     floor_node = item.find('floor')
                     floor = int(floor_node.text.strip()) if floor_node is not None else 0
                     month = item.find('dealMonth').text.strip() if item.find('dealMonth') is not None else "0"
                     day = item.find('dealDay').text.strip() if item.find('dealDay') is not None else "0"
                     
-                    data.append({
-                        '건물명': prop_name,  # '아파트명' 대신 범용적인 '건물명'으로 변경
-                        '거래금액(만원)': int(price_str),
-                        '전용면적(㎡)': size,
-                        '층': floor,
-                        '거래일': f"{month.zfill(2)}월 {day.zfill(2)}일"
-                    })
+                    # 매매인지 전월세인지에 따라 수집하는 데이터(돈)가 다름
+                    if deal_type == "매매":
+                        price_str = item.find('dealAmount').text.strip().replace(',', '') if item.find('dealAmount') is not None else "0"
+                        data.append({
+                            '건물명': prop_name,
+                            '거래금액(만원)': int(price_str),
+                            '전용면적(㎡)': size,
+                            '층': floor,
+                            '계약일': f"{month.zfill(2)}월 {day.zfill(2)}일"
+                        })
+                    else: # 전/월세
+                        deposit_str = item.find('deposit').text.strip().replace(',', '') if item.find('deposit') is not None else "0"
+                        monthly_str = item.find('monthlyRent').text.strip().replace(',', '') if item.find('monthlyRent') is not None else "0"
+                        data.append({
+                            '건물명': prop_name,
+                            '보증금(만원)': int(deposit_str),
+                            '월세(만원)': int(monthly_str),
+                            '전용면적(㎡)': size,
+                            '층': floor,
+                            '계약일': f"{month.zfill(2)}월 {day.zfill(2)}일"
+                        })
                 except Exception:
                     continue
                     
@@ -130,27 +148,35 @@ tab1, tab2 = st.tabs(["🏠 국토부 실거래가 자동 수집판", "📈 통�
 
 with tab1:
     st.subheader("🛰️ 공공데이터포털 실시간 실거래가 매핑")
-    col_req1, col_req2, col_req3 = st.columns([2, 1, 2]) # 3칸으로 나눔
+    
+    # 조종판을 2줄로 나누어 깔끔하게 배치
+    col_req1, col_req2 = st.columns(2)
     with col_req1:
         target_region = st.selectbox("타격 대상 지역 선택", 
                                      options=["41171", "41210", "11500"], 
                                      format_func=lambda x: "안양시 만안구" if x=="41171" else "광명시" if x=="41210" else "서울 강서구")
     with col_req2:
         target_month = st.text_input("조회 년월 (YYYYMM)", value="202604")
+        
+    col_req3, col_req4 = st.columns(2)
     with col_req3:
-        # 💡 [핵심 추가] 아파트와 빌라를 선택할 수 있는 스위치
         prop_type = st.radio("수집 매물 종류", ["아파트", "빌라(연립/다세대)"], horizontal=True)
+    with col_req4:
+        # 💡 [핵심 추가] 매매와 전월세를 선택하는 스위치
+        deal_type = st.radio("거래 유형", ["매매", "전/월세"], horizontal=True)
         
     if 'real_estate_data' not in st.session_state:
         st.session_state.real_estate_data = None
         
     if st.button("🔍 국토교통부 실거래가 레이더 가동"):
-        with st.spinner(f"국토부 서버에서 최신 {prop_type} 실거래 내역을 수집하는 중..."):
-            # 💡 선택한 매물 종류(prop_type)를 함수에 같이 전달
-            df_property = get_real_estate_api(API_KEY, target_region, target_month, prop_type)
+        with st.spinner(f"국토부 서버에서 최신 [{prop_type} - {deal_type}] 내역을 수집하는 중..."):
+            # 함수에 매물종류(prop_type)와 거래유형(deal_type)을 모두 넘겨줍니다.
+            df_property = get_real_estate_api(API_KEY, target_region, target_month, prop_type, deal_type)
             
             if not df_property.empty:
-                df_property = df_property.sort_values(by='거래금액(만원)', ascending=True)
+                # 💡 거래 유형에 따라 정렬 기준을 다르게 적용
+                sort_col = '거래금액(만원)' if deal_type == "매매" else '보증금(만원)'
+                df_property = df_property.sort_values(by=sort_col, ascending=True)
                 df_property = df_property.reset_index(drop=True)
                 df_property.index = df_property.index + 1 
                 st.session_state.real_estate_data = df_property
@@ -159,7 +185,7 @@ with tab1:
                 st.session_state.real_estate_data = None
 
     if st.session_state.real_estate_data is not None:
-        st.success(f"📊 {target_month[:4]}년 {target_month[4:]}월 신고된 [{prop_type}] 매매 내역입니다.")
+        st.success(f"📊 {target_month[:4]}년 {target_month[4:]}월 신고된 [{prop_type} - {deal_type}] 내역입니다.")
         st.dataframe(st.session_state.real_estate_data, use_container_width=True)
 
 with tab2:
