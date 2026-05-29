@@ -142,13 +142,16 @@ with tab1:
         target_month = st.text_input("조회 년월 (YYYYMM)", value=datetime.datetime.now().strftime("%Y%m"))
         
     if st.button("🔍 국토교통부 실거래가 레이더 가동"):
-        with st.spinner("국토부 서버에서 최신 실거래 내역을 격추하는 중..."):
-            df_property = get_real_estate_api(API_KEY, target_region, target_month)
-            if not df_property.empty:
-                st.success(f"📊 {target_month[:4]}년 {target_month[4:]}월 실제 신고 완료된 매매 내역입니다.")
-                st.dataframe(df_property, use_container_width=True)
-            else:
-                st.warning("⚠️해당 년월에 신고된 거래 데이터가 없거나 인증키 오류입니다.")
+        with st.spinner("국토부 서버 원본 응답을 추적합니다..."):
+            # https 로 주소 변경 및 직접 통신
+            url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
+            test_url = f"{url}?serviceKey={API_KEY}&LAWD_CD={target_region}&DEAL_YMD={target_month}&numOfRows=10"
+            
+            res = requests.get(test_url, timeout=10)
+            
+            st.error("🚨 국토부 서버 원본 응답 결과 🚨")
+            st.code(res.text) # 꼬부랑 글씨(XML)가 그대로 화면에 출력됩니다.
+            st.stop() # 테스트를 위해 여기서 프로그램을 멈춥니다.
 
 with tab2:
     st.subheader("🛰️ 실시간 주식 및 가상자산 감시판")
