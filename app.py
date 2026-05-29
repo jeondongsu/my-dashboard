@@ -133,22 +133,29 @@ with tab1:
     with col_req2:
         target_month = st.text_input("조회 년월 (YYYYMM)", value="202604")
         
+    # 💡 [핵심 1] 데이터를 안전하게 보관할 '메모리 창고'를 하나 만듭니다.
+    if 'real_estate_data' not in st.session_state:
+        st.session_state.real_estate_data = None
+        
     if st.button("🔍 국토교통부 실거래가 레이더 가동"):
         with st.spinner("국토부 서버에서 최신 실거래 내역을 수집하는 중..."):
-            # 깔끔하게 정리된 함수 호출
             df_property = get_real_estate_api(API_KEY, target_region, target_month)
             
             if not df_property.empty:
-                # 👇 if문 아래에 있는 코드들은 모두 동일하게 안으로 들어가야 합니다.
                 df_property = df_property.sort_values(by='거래금액(만원)', ascending=True)
                 df_property = df_property.reset_index(drop=True)
-                df_property.index = df_property.index + 1 
-
-                st.success(f"📊 {target_month[:4]}년 {target_month[4:]}월 신고된 매매 내역입니다.")
-                st.dataframe(df_property, use_container_width=True)
+                df_property.index = df_property.index + 1
+                
+                # 💡 [핵심 2] 수집된 표 데이터를 창고에 꽉꽉 채워 넣습니다.
+                st.session_state.real_estate_data = df_property
             else:
-                # 👇 else문 아래도 마찬가지로 안으로 들어가야 합니다.
                 st.warning("⚠️ 해당 년월에 신고된 거래 데이터가 없거나 서버 응답이 지연되고 있습니다.")
+                st.session_state.real_estate_data = None # 데이터가 없으면 창고를 비웁니다.
+
+    # 💡 [핵심 3] 버튼이 눌려있든 아니든, 1분마다 새로고침 될 때 창고에 데이터가 있다면 무조건 화면에 다시 그립니다.
+    if st.session_state.real_estate_data is not None:
+        st.success(f"📊 {target_month[:4]}년 {target_month[4:]}월 신고된 매매 내역입니다.")
+        st.dataframe(st.session_state.real_estate_data, use_container_width=True)
 
 with tab2:
     st.subheader("🛰️ 실시간 주식 및 가상자산 감시판")
