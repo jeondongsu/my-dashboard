@@ -216,7 +216,9 @@ with tab2:
     if st.checkbox("🔄 24시간 무인 자동 감시 작동 - 1분마다"):
         st_autorefresh(interval=60000, limit=None, key="auto_refresh")
         
-        now = datetime.datetime.now()
+        # 💡 [핵심 추가] 서버 시간에 9시간을 더해 한국 표준시(KST)로 강제 고정합니다.
+        kst = datetime.timezone(datetime.timedelta(hours=9))
+        now = datetime.datetime.now(kst)
         is_weekday = True
         start_time = datetime.time(0, 1)
         end_time = datetime.time(23, 59)
