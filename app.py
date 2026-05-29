@@ -145,7 +145,7 @@ if dsr <= 40: st.sidebar.success("✅ 대출 안전권")
 else: st.sidebar.error("🚨 한도 초과 위험!")
 
 # --- [메인 화면] 작전 제어판 ---
-st.title("🏢 SD 전용 무인 감시 지휘소 (V9.3)")
+st.title("🏢 SPECIAL-DONG 전용 무인 감시 지휘소 (V9.3) - 최종수정일 2026-05-29 금요일")
 
 tab1, tab2 = st.tabs(["🏠 국토부 실거래가 자동 수집판", "📈 통합 자산 무인 감시망"])
 
