@@ -7,7 +7,7 @@ import datetime
 import xml.etree.ElementTree as ET
 from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(layout="wide", page_title="통합 지휘소 V9.5")
+st.set_page_config(layout="wide", page_title="통합 지휘소 V9.6")
 
 # --- [상태 관리 시스템: 6대 알림망 독립 제어] ---
 if 'dw_buy_fired' not in st.session_state: st.session_state.dw_buy_fired = False
@@ -38,7 +38,7 @@ def get_upbit_price(ticker="KRW-ETH"):
         return int(data[0]['trade_price'])
     except: return 0
 
-# 🏠 국토교통부 실거래가 API 저격 엔진 (카카오맵 동적 맵핑 링크 생성 추가)
+# 🏠 국토교통부 실거래가 API 저격 엔진 (주소 추출 및 칸 추가 완료)
 def get_real_estate_api(service_key, lawd_cd, deal_ymd, region_name, prop_type="아파트", deal_type="매매"):
     if prop_type == "아파트" and deal_type == "매매":
         url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
@@ -75,12 +75,17 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, region_name, prop_type="
                     month = item.find('dealMonth').text.strip() if item.find('dealMonth') is not None else "0"
                     day = item.find('dealDay').text.strip() if item.find('dealDay') is not None else "0"
                     
-                    # 💡 법정동(umdNm)을 추출하여 완벽한 주소 쿼리를 조립합니다.
+                    # 💡 법정동 및 지번 추출
                     umd_node = item.find('umdNm')
                     umd_name = umd_node.text.strip() if umd_node is not None else ""
+                    jibun_node = item.find('jibun')
+                    jibun_name = jibun_node.text.strip() if jibun_node is not None else ""
                     
-                    # 예: "서울특별시 강서구 마곡동 신안" 형식으로 검색어 자동 조립
-                    search_query = f"{region_name} {umd_name} {prop_name}"
+                    # 표에 표기할 깔끔한 주소 (예: 마곡동 327-53)
+                    display_address = f"{umd_name} {jibun_name}".strip()
+                    
+                    # 카카오맵 검색용 전체 쿼리 조립
+                    search_query = f"{region_name} {umd_name} {jibun_name} {prop_name}"
                     encoded_query = urllib.parse.quote(search_query)
                     map_url = f"https://map.kakao.com/?q={encoded_query}"
                     
@@ -88,7 +93,8 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, region_name, prop_type="
                         price_str = item.find('dealAmount').text.strip().replace(',', '') if item.find('dealAmount') is not None else "0"
                         data.append({
                             '건물명': prop_name,
-                            '🗺️ 지도 보기': map_url,  # 💡 하단에서 클릭 가능한 버튼으로 치환됩니다.
+                            '주소': display_address,      # 💡 지도 보기 직전 칸에 배치
+                            '🗺️ 지도 보기': map_url,
                             '거래금액(만원)': int(price_str),
                             '전용면적(㎡)': size,
                             '전용면적(평)': pyeong,
@@ -100,6 +106,7 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, region_name, prop_type="
                         monthly_str = item.find('monthlyRent').text.strip().replace(',', '') if item.find('monthlyRent') is not None else "0"
                         data.append({
                             '건물명': prop_name,
+                            '주소': display_address,      # 💡 지도 보기 직전 칸에 배치
                             '🗺️ 지도 보기': map_url,
                             '보증금(만원)': int(deposit_str),
                             '월세(만원)': int(monthly_str),
@@ -155,14 +162,14 @@ if dsr <= 40: st.sidebar.success("✅ 대출 안전권")
 else: st.sidebar.error("🚨 한도 초과 위험!")
 
 # --- [메인 화면] 작전 제어판 ---
-st.title("🏢 SD 전용 무인 감시 지휘소 (V9.5)")
+st.title("🏢 SD 전용 무인 감시 지휘소 (V9.6)")
 
 tab1, tab2 = st.tabs(["🏠 국토부 실거래가 자동 수집판", "📈 통합 자산 무인 감시망"])
 
 with tab1:
     st.subheader("🛰️ 공공데이터포털 실시간 실거래가 매핑")
     
-    # 회장님께서 수집 완료하신 대규모 전국 시군구 사전 시스템
+    # 회장님께서 구축 완료하신 대규모 전국 시군구 사전 시스템
     region_codes = {
         "11110": "서울특별시 종로구", "11140": "서울특별시 중구", "11170": "서울특별시 용산구", "11200": "서울특별시 성동구",
         "11215": "서울특별시 광진구", "11230": "서울특별시 동대문구", "11260": "서울특별시 중랑구", "11290": "서울특별시 성북구",
@@ -206,7 +213,6 @@ with tab1:
         
     if st.button("🔍 국토교통부 실거래가 레이더 가동"):
         with st.spinner(f"국토부 서버에서 최신 [{prop_type} - {deal_type}] 내역을 수집하는 중..."):
-            # 💡 동적 링크 생성을 위해 행정구역 명칭(region_codes[target_region])을 추가 인자로 전달합니다.
             df_property = get_real_estate_api(API_KEY, target_region, target_month, region_codes[target_region], prop_type, deal_type)
             
             if not df_property.empty:
@@ -222,7 +228,7 @@ with tab1:
     if st.session_state.real_estate_data is not None:
         st.success(f"📊 {target_month[:4]}년 {target_month[4:]}월 신고된 [{prop_type} - {deal_type}] 내역입니다.")
         
-        # 💡 [핵심] 텍스트 주소 주소창을 클릭 가능한 하이퍼링크 '지도 보기' 버튼으로 렌더링합니다.
+        # 주소와 지도 보기가 포함된 테이블 렌더링
         st.dataframe(
             st.session_state.real_estate_data, 
             use_container_width=True,
