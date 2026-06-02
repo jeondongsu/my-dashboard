@@ -365,7 +365,7 @@ with tab2:
     with col_tgt3:
         st.markdown("#### 💎 이더리움(ETH)")
         eth_buy_target = st.number_input("매수 단가 (이하)", value=3100000, step=100000, key="eth_buy")
-        eth_sell_target = 스t.number_input("매도 단가 (이상)", value=3500000, step=100000, key="eth_sell")
+        eth_sell_target = st.number_input("매도 단가 (이상)", value=3500000, step=100000, key="eth_sell")
 
     st.markdown("---")
     if st.checkbox("🔄 24시간 무인 자동 감시 작동 - 1분마다"):
