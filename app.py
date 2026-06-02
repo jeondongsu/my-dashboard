@@ -285,11 +285,11 @@ with tab1:
     
     col_req1, col_req2 = st.columns(2)
     with col_req1:
-        target_region = st.selectbox("타격 대상 지역 선택", 
+        target_region = st.selectbox("지역 선택", 
                                      options=list(region_codes.keys()), 
                                      format_func=lambda x: region_codes[x])
     with col_req2:
-        target_month = st.text_input("조회 년월 (YYYYMM)", value="202604")
+        target_month = st.text_input("조회 년월 입력(ex - 202601)", value="202605")
         
     col_req3, col_req4 = st.columns(2)
     with col_req3:
@@ -322,7 +322,7 @@ with tab1:
         available_dongs = sorted(list(df_display['주소'].str.split().str[0].unique()))
         
         # 정밀 타격을 위한 드롭다운 메뉴 렌더링
-        selected_dong = st.selectbox("🎯 정밀 타격 '동' 선택", ["전체 보기"] + available_dongs)
+        selected_dong = st.selectbox("🎯 '동' 선택", ["전체 보기"] + available_dongs)
         
         if selected_dong != "전체 보기":
             df_display = df_display[df_display['주소'].str.startswith(selected_dong)]
