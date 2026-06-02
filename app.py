@@ -7,7 +7,7 @@ import datetime
 import xml.etree.ElementTree as ET
 from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(layout="wide", page_title="통합 지휘소 V9.8")
+st.set_page_config(layout="wide", page_title="통합 지휘소 V9.9")
 
 # --- [상태 관리 시스템: 6대 알림망 독립 제어] ---
 if 'dw_buy_fired' not in st.session_state: st.session_state.dw_buy_fired = False
@@ -38,7 +38,7 @@ def get_upbit_price(ticker="KRW-ETH"):
         return int(data[0]['trade_price'])
     except: return 0
 
-# 🏠 국토교통부 실거래가 API 저격 엔진 (주소 추출 및 지도 링크 추가)
+# 🏠 국토교통부 실거래가 API 저격 엔진 (네이버 지도 링크로 교체)
 def get_real_estate_api(service_key, lawd_cd, deal_ymd, region_name, prop_type="아파트", deal_type="매매"):
     if prop_type == "아파트" and deal_type == "매매":
         url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
@@ -68,14 +68,13 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, region_name, prop_type="
                     prop_name = name_node.text.strip() if name_node is not None else "이름없음"
                     
                     size = float(item.find('excluUseAr').text.strip()) if item.find('excluUseAr') is not None else 0.0
-                    pyeong = round(size * 0.3025, 1) # 평수 계산
+                    pyeong = round(size * 0.3025, 1) 
                     
                     floor_node = item.find('floor')
                     floor = int(floor_node.text.strip()) if floor_node is not None else 0
                     month = item.find('dealMonth').text.strip() if item.find('dealMonth') is not None else "0"
                     day = item.find('dealDay').text.strip() if item.find('dealDay') is not None else "0"
                     
-                    # 💡 법정동 및 지번 추출
                     umd_node = item.find('umdNm')
                     umd_name = umd_node.text.strip() if umd_node is not None else ""
                     jibun_node = item.find('jibun')
@@ -83,10 +82,10 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, region_name, prop_type="
                     
                     display_address = f"{umd_name} {jibun_name}".strip()
                     
-                    # 카카오맵 검색용 URL 생성
+                    # 💡 [핵심 변경] 네이버지도 검색용 URL 생성 (v5 버전)
                     search_query = f"{region_name} {umd_name} {jibun_name} {prop_name}"
                     encoded_query = urllib.parse.quote(search_query)
-                    map_url = f"https://map.kakao.com/?q={encoded_query}"
+                    map_url = f"https://map.naver.com/v5/search/{encoded_query}"
                     
                     if deal_type == "매매":
                         price_str = item.find('dealAmount').text.strip().replace(',', '') if item.find('dealAmount') is not None else "0"
@@ -161,14 +160,13 @@ if dsr <= 40: st.sidebar.success("✅ 대출 안전권")
 else: st.sidebar.error("🚨 한도 초과 위험!")
 
 # --- [메인 화면] 작전 제어판 ---
-st.title("🏢 SD 전용 무인 감시 지휘소 (V9.8)")
+st.title("🏢 SD 전용 무인 감시 지휘소 (V9.9)")
 
 tab1, tab2 = st.tabs(["🏠 국토부 실거래가 자동 수집판", "📈 통합 자산 무인 감시망"])
 
 with tab1:
     st.subheader("🛰️ 공공데이터포털 실시간 실거래가 매핑")
     
-    # 💡 회장님께서 직접 타이핑하여 완성하신 오리지널 전국 사전
     region_codes = {
         # --- 서울 ---
         "11110": "서울특별시 종로구", "11140": "서울특별시 중구", "11170": "서울특별시 용산구",
@@ -289,7 +287,7 @@ with tab1:
                                      options=list(region_codes.keys()), 
                                      format_func=lambda x: region_codes[x])
     with col_req2:
-        target_month = st.text_input("조회 년월 입력(ex - 202601)", value="202605")
+        target_month = st.text_input("조회 년월 입력 (ex - 202601)", value="202604")
         
     col_req3, col_req4 = st.columns(2)
     with col_req3:
@@ -314,15 +312,12 @@ with tab1:
                 st.warning("⚠️ 해당 년월에 신고된 거래 데이터가 없거나 서버 응답이 지연되고 있습니다.")
                 st.session_state.real_estate_data = None
 
-    # 💡 [핵심 추가] 동 단위 필터링 및 카카오맵 지도 링크 적용
     if st.session_state.real_estate_data is not None:
         df_display = st.session_state.real_estate_data.copy()
         
-        # '주소' 컬럼에서 동 이름만 추출하여 중복 없는 리스트 생성
         available_dongs = sorted(list(df_display['주소'].str.split().str[0].unique()))
         
-        # 정밀 타격을 위한 드롭다운 메뉴 렌더링
-        selected_dong = st.selectbox("🎯 '동' 선택", ["전체 보기"] + available_dongs)
+        selected_dong = st.selectbox("🎯 세부조회 '동' 선택", ["전체 보기"] + available_dongs)
         
         if selected_dong != "전체 보기":
             df_display = df_display[df_display['주소'].str.startswith(selected_dong)]
@@ -337,7 +332,7 @@ with tab1:
             column_config={
                 "🗺️ 지도 보기": st.column_config.LinkColumn(
                     "🗺️ 지도 보기",
-                    help="클릭하면 카카오맵 로드뷰로 이동합니다.",
+                    help="클릭하면 네이버지도로 이동하여 위치와 거리뷰를 확인할 수 있습니다.",
                     display_text="지도 보기"
                 )
             }
@@ -370,7 +365,7 @@ with tab2:
     with col_tgt3:
         st.markdown("#### 💎 이더리움(ETH)")
         eth_buy_target = st.number_input("매수 단가 (이하)", value=3100000, step=100000, key="eth_buy")
-        eth_sell_target = st.number_input("매도 단가 (이상)", value=3500000, step=100000, key="eth_sell")
+        eth_sell_target = 스t.number_input("매도 단가 (이상)", value=3500000, step=100000, key="eth_sell")
 
     st.markdown("---")
     if st.checkbox("🔄 24시간 무인 자동 감시 작동 - 1분마다"):
