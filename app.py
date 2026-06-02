@@ -7,7 +7,7 @@ import datetime
 import xml.etree.ElementTree as ET
 from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(layout="wide", page_title="통합 지휘소 V10.1")
+st.set_page_config(layout="wide", page_title="통합 지휘소 V10.2")
 
 # --- [상태 관리 시스템: 6대 알림망 독립 제어 및 로그 창고] ---
 if 'dw_buy_fired' not in st.session_state: st.session_state.dw_buy_fired = False
@@ -39,7 +39,7 @@ def get_upbit_price(ticker="KRW-ETH"):
         return int(data[0]['trade_price'])
     except: return 0
 
-# 🏠 국토교통부 실거래가 API 저격 엔진 (네이버지도 연동 적용 완료)
+# 🏠 국토교통부 실거래가 API 저격 엔진 (평당가 계산 추가)
 def get_real_estate_api(service_key, lawd_cd, deal_ymd, region_name, prop_type="아파트", deal_type="매매"):
     if prop_type == "아파트" and deal_type == "매매":
         url = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev"
@@ -89,27 +89,39 @@ def get_real_estate_api(service_key, lawd_cd, deal_ymd, region_name, prop_type="
                     
                     if deal_type == "매매":
                         price_str = item.find('dealAmount').text.strip().replace(',', '') if item.find('dealAmount') is not None else "0"
+                        price_int = int(price_str)
+                        # 💡 [핵심] 평당가 계산 (0으로 나누는 에러 방지)
+                        pyeong_price = int(price_int / pyeong) if pyeong > 0 else 0
+                        
                         data.append({
                             '건물명': prop_name,
                             '주소': display_address,
                             '🗺️ 지도 보기': map_url,
-                            '거래금액(만원)': int(price_str),
-                            '전용면적(㎡)': size,
+                            '거래금액(만원)': price_int,
+                            '평당가(만원)': pyeong_price,  # 💡 새로운 열 추가
                             '전용면적(평)': pyeong,
+                            '전용면적(㎡)': size,
                             '층': floor,
                             '계약일': f"{month.zfill(2)}월 {day.zfill(2)}일"
                         })
                     else: 
                         deposit_str = item.find('deposit').text.strip().replace(',', '') if item.find('deposit') is not None else "0"
                         monthly_str = item.find('monthlyRent').text.strip().replace(',', '') if item.find('monthlyRent') is not None else "0"
+                        deposit_int = int(deposit_str)
+                        monthly_int = int(monthly_str)
+                        
+                        # 💡 전월세의 경우 '보증금' 기준으로 평당가 계산
+                        pyeong_deposit = int(deposit_int / pyeong) if pyeong > 0 else 0
+                        
                         data.append({
                             '건물명': prop_name,
                             '주소': display_address,
                             '🗺️ 지도 보기': map_url,
-                            '보증금(만원)': int(deposit_str),
-                            '월세(만원)': int(monthly_str),
-                            '전용면적(㎡)': size,
+                            '보증금(만원)': deposit_int,
+                            '월세(만원)': monthly_int,
+                            '보증금 평당가(만원)': pyeong_deposit, # 💡 새로운 열 추가
                             '전용면적(평)': pyeong,
+                            '전용면적(㎡)': size,
                             '층': floor,
                             '계약일': f"{month.zfill(2)}월 {day.zfill(2)}일"
                         })
@@ -160,14 +172,13 @@ if dsr <= 40: st.sidebar.success("✅ 대출 안전권")
 else: st.sidebar.error("🚨 한도 초과 위험!")
 
 # --- [메인 화면] 작전 제어판 ---
-st.title("🏢 SD 전용 무인 감시 지휘소 (V10.1)")
+st.title("🏢 SD 전용 무인 감시 지휘소 (V10.2)")
 
 tab1, tab2 = st.tabs(["🏠 국토부 실거래가 자동 수집판", "📈 통합 자산 무인 감시망"])
 
 with tab1:
     st.subheader("🛰️ 공공데이터포털 실시간 실거래가 매핑")
     
-    # 💡 [핵심 복구 완료] 회장님의 전국구 사전 100% 복원
     region_codes = {
         # --- 서울 ---
         "11110": "서울특별시 종로구", "11140": "서울특별시 중구", "11170": "서울특별시 용산구",
@@ -304,7 +315,8 @@ with tab1:
             df_property = get_real_estate_api(API_KEY, target_region, target_month, region_codes[target_region], prop_type, deal_type)
             
             if not df_property.empty:
-                sort_col = '거래금액(만원)' if deal_type == "매매" else '보증금(만원)'
+                # 💡 [핵심 교체] 이제부터는 무조건 '평당가' 기준으로 오름차순(싼 것부터) 정렬합니다!
+                sort_col = '평당가(만원)' if deal_type == "매매" else '보증금 평당가(만원)'
                 df_property = df_property.sort_values(by=sort_col, ascending=True)
                 df_property = df_property.reset_index(drop=True)
                 df_property.index = df_property.index + 1 
