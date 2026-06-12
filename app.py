@@ -7,7 +7,7 @@ import datetime
 import xml.etree.ElementTree as ET
 from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(layout="wide", page_title="통합 지휘소 V11.0")
+st.set_page_config(layout="wide", page_title="통합 지휘소 V11.1")
 
 # --- [상태 관리 시스템: 10대 알림망 독립 제어 및 로그 창고] ---
 if 'dw_buy_fired' not in st.session_state: st.session_state.dw_buy_fired = False
@@ -18,7 +18,6 @@ if 'eth_buy_fired' not in st.session_state: st.session_state.eth_buy_fired = Fal
 if 'eth_sell_fired' not in st.session_state: st.session_state.eth_sell_fired = False
 if 'sk_buy_fired' not in st.session_state: st.session_state.sk_buy_fired = False
 if 'sk_sell_fired' not in st.session_state: st.session_state.sk_sell_fired = False
-# 💡 [핵심] 삼성전자, SK하이닉스 전용 감시 스위치 추가
 if 'ss_buy_fired' not in st.session_state: st.session_state.ss_buy_fired = False
 if 'ss_sell_fired' not in st.session_state: st.session_state.ss_sell_fired = False
 if 'hn_buy_fired' not in st.session_state: st.session_state.hn_buy_fired = False
@@ -177,7 +176,7 @@ if dsr <= 40: st.sidebar.success("✅ 대출 안전권")
 else: st.sidebar.error("🚨 한도 초과 위험!")
 
 # --- [메인 화면] 작전 제어판 ---
-st.title("🏢 SD 전용 무인 감시 지휘소 (V11.0)")
+st.title("🏢 SD 전용 무인 감시 지휘소 (V11.1)")
 
 tab1, tab2 = st.tabs(["🏠 국토부 실거래가 자동 수집판", "📈 통합 자산 무인 감시망"])
 
@@ -185,7 +184,6 @@ with tab1:
     st.subheader("🛰️ 공공데이터포털 실시간 실거래가 매핑")
     
     region_codes = {
-        # --- 서울 ---
         "11110": "서울특별시 종로구", "11140": "서울특별시 중구", "11170": "서울특별시 용산구",
         "11200": "서울특별시 성동구", "11215": "서울특별시 광진구", "11230": "서울특별시 동대문구",
         "11260": "서울특별시 중랑구", "11290": "서울특별시 성북구", "11305": "서울특별시 강북구",
@@ -195,7 +193,6 @@ with tab1:
         "11560": "서울특별시 영등포구", "11590": "서울특별시 동작구", "11620": "서울특별시 관악구",
         "11650": "서울특별시 서초구", "11680": "서울특별시 강남구", "11710": "서울특별시 송파구",
         "11740": "서울특별시 강동구",
-        # --- 경기도 ---
         "41110": "경기도 수원시", "41111": "경기도 수원시 장안구", "41113": "경기도 수원시 권선구",
         "41115": "경기도 수원시 팔달구", "41117": "경기도 수원시 영통구", "41130": "경기도 성남시",
         "41131": "경기도 성남시 수정구", "41133": "경기도 성남시 중원구", "41135": "경기도 성남시 분당구",
@@ -212,7 +209,6 @@ with tab1:
         "41570": "경기도 김포시", "41590": "경기도 화성시", "41610": "경기도 광주시",
         "41630": "경기도 양주시", "41650": "경기도 포천시", "41670": "경기도 여주시",
         "41800": "경기도 연천군", "41820": "경기도 가평군", "41830": "경기도 양평군",
-        # --- 인천 ---
         "28110": "인천광역시 중구", "28140": "인천광역시 동구", "28177": "인천광역시 미추홀구",
         "28185": "인천광역시 연수구(송도)", "28200": "인천광역시 남동구", "28237": "인천광역시 부평구",
         "28245": "인천광역시 계양구", "28260": "인천광역시 서구(청라)", "28710": "인천광역시 강화군",
@@ -344,17 +340,13 @@ with tab1:
 with tab2:
     st.subheader("🛰️ 실시간 자산 무인 감시망")
     
-    # 💡 주식 및 ETF 데이터 수집 (신규 2종 추가)
     dw_price = get_naver_price("047040")
     space_price = get_naver_price("0183J0")
     sk_price = get_naver_price("001740")
-    ss_price = get_naver_price("005930") # 삼성전자
-    hn_price = get_naver_price("000660") # SK하이닉스
-    
-    # 💡 가상자산 데이터 수집
+    ss_price = get_naver_price("005930")
+    hn_price = get_naver_price("000660")
     eth_price = get_upbit_price("KRW-ETH")
     
-    # --- 📈 영역 구분: 주식 시장 (5열 배치) ---
     st.markdown("### 📈 전통 자산 (주식 / ETF)")
     col_st1, col_st2, col_st3, col_st4, col_st5 = st.columns(5)
     with col_st1: st.metric("🏢 대우건설", f"{dw_price:,} 원")
@@ -363,15 +355,13 @@ with tab2:
     with col_st4: st.metric("🔹 삼성전자", f"{ss_price:,} 원")
     with col_st5: st.metric("🔺 SK하이닉스", f"{hn_price:,} 원")
     
-    # --- 💎 영역 구분: 가상자산 시장 ---
     st.markdown("### 💎 가상자산 (암호화폐)")
-    col_crypto = st.columns(5) # 주식과 비율 통일을 위해 5열 구조 형성 후 첫 칸 점유
+    col_crypto = st.columns(5)
     with col_crypto[0]: st.metric("⚡ 이더리움 (ETH)", f"{eth_price:,} 원")
     
     st.markdown("---")
     st.subheader("🚨 공방(攻防)형 자동 경보 시스템 설정")
     
-    # --- 목표가 세팅 분리: 주식 구역 (5열 배치) ---
     st.markdown("#### [주식 / ETF 목표 제어판]")
     col_tgt_st1, col_tgt_st2, col_tgt_st3, col_tgt_st4, col_tgt_st5 = st.columns(5)
     with col_tgt_st1:
@@ -395,7 +385,6 @@ with tab2:
         hn_buy_target = st.number_input("매수 단가 (이하)", value=150000, step=500, key="hn_buy")
         hn_sell_target = st.number_input("매도 단가 (이상)", value=200000, step=500, key="hn_sell")
 
-    # --- 목표가 세팅 분리: 암호화폐 구역 ---
     st.markdown("#### [가상자산 목표 제어판]")
     col_tgt_cry = st.columns(5)
     with col_tgt_cry[0]:
@@ -404,20 +393,23 @@ with tab2:
         eth_sell_target = st.number_input("매도 단가 (이상)", value=3500000, step=100000, key="eth_sell")
 
     st.markdown("---")
+    
+    # 💡 하트비트를 위해 현재 시간을 구합니다.
+    kst_now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9)))
+    current_run_time = kst_now.strftime('%Y-%m-%d %H:%M:%S')
+
     if st.checkbox("🔄 24시간 무인 자동 감시 작동 - 1분마다"):
         st_autorefresh(interval=60000, limit=None, key="auto_refresh")
         
-        kst = datetime.timezone(datetime.timedelta(hours=9))
-        now = datetime.datetime.now(kst)
-        log_time = now.strftime('%Y-%m-%d %H:%M:%S') 
+        log_time = current_run_time
         
         is_weekday = True
         start_time = datetime.time(0, 1)
         end_time = datetime.time(23, 59)
-        is_market_hours = start_time <= now.time() <= end_time
+        is_market_hours = start_time <= kst_now.time() <= end_time
         
         if is_weekday and is_market_hours:
-            st.info(f"🛰️ 현재 시각 {now.strftime('%H:%M:%S')} : 24시간 무인 감시망 가동 중 (1분 주기)")
+            st.info(f"🛰️ 현재 시각 {kst_now.strftime('%H:%M:%S')} : 24시간 무인 감시망 가동 중 (1분 주기)")
             
             # --- 1. 대우건설 ---
             if dw_price > 0 and dw_price <= dw_buy_target and not st.session_state.dw_buy_fired:
@@ -479,7 +471,7 @@ with tab2:
                 st.session_state.alert_logs.insert(0, f"[{log_time}] {msg}")
             if sk_price < sk_sell_target: st.session_state.sk_sell_fired = False
 
-            # --- 💡 5. 삼성전자 (신규 추가) ---
+            # --- 5. 삼성전자 ---
             if ss_price > 0 and ss_price <= ss_buy_target and not st.session_state.ss_buy_fired:
                 msg = f"🔹📉 [삼성전자 매수 경보] 목표가 진입: {ss_price:,}원"
                 requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": msg})
@@ -494,7 +486,7 @@ with tab2:
                 st.session_state.alert_logs.insert(0, f"[{log_time}] {msg}")
             if ss_price < ss_sell_target: st.session_state.ss_sell_fired = False
 
-            # --- 💡 6. SK하이닉스 (신규 추가) ---
+            # --- 6. SK하이닉스 ---
             if hn_price > 0 and hn_price <= hn_buy_target and not st.session_state.hn_buy_fired:
                 msg = f"🔺📉 [SK하이닉스 매수 경보] 목표가 진입: {hn_price:,}원"
                 requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", data={"chat_id": TG_CHAT_ID, "text": msg})
@@ -515,7 +507,10 @@ with tab2:
     st.markdown("---")
     st.subheader("📝 실시간 경보 발송 블랙박스")
     
+    # 💡 [핵심] 갱신 날짜 및 시간 타이틀 추가 (하트비트 역할)
+    log_title = f"최근 텔레그램 발송 내역 (마지막 갱신: {current_run_time})"
+    
     if not st.session_state.alert_logs:
-        st.text_area("최근 텔레그램 발송 내역", value="대기 중... (아직 발송된 경보가 없습니다)", height=150, disabled=True)
+        st.text_area(log_title, value="대기 중... (아직 발송된 경보가 없습니다)", height=150, disabled=True)
     else:
-        st.text_area("최근 텔레그램 발송 내역", value="\n".join(st.session_state.alert_logs), height=150, disabled=True)
+        st.text_area(log_title, value="\n".join(st.session_state.alert_logs), height=150, disabled=True)
