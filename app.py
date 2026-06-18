@@ -13,7 +13,7 @@ st.set_page_config(layout="wide", page_title="통합 지휘소 V12.0")
 ASSETS = [
     # 주식/ETF 라인업
     {"name": "TIGER 미국S&P500", "code": "360750", "type": "stock", "key": "sp500", "p_step": 100.0, "q_step": 1.0},
-    {"name": "KODEX 나스닥100", "code": "133690", "type": "stock", "key": "ndx", "p_step": 100.0, "q_step": 1.0},
+    {"name": "KODEX 나스닥100", "code": "379810", "type": "stock", "key": "ndx", "p_step": 100.0, "q_step": 1.0},
     {"name": "TIGER 미국배당다우존스", "code": "458730", "type": "stock", "key": "dow", "p_step": 50.0, "q_step": 1.0},
     {"name": "TIGER 미국우주테크", "code": "0183J0", "type": "stock", "key": "space", "p_step": 50.0, "q_step": 1.0},
     {"name": "삼성전자", "code": "005930", "type": "stock", "key": "ss", "p_step": 100.0, "q_step": 1.0},
